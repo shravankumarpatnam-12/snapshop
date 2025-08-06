@@ -1,5 +1,7 @@
 package com.ecommerce.snapshop.exceptions;
 
+import com.ecommerce.snapshop.config.AppConstants;
+import jakarta.validation.ConstraintViolationException;
 import lombok.NoArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -16,34 +18,48 @@ import java.util.Map;
 public class GlobalExceptionHandler {
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
-    public ResponseEntity<Map<String,String>> methodArgumentNotValidException(MethodArgumentNotValidException ex){
-        Map<String,String> errors = new HashMap<>();
+    public ResponseEntity<Map<String,APIResponse>> methodArgumentNotValidException(MethodArgumentNotValidException ex){
+        Map<String,APIResponse> errors = new HashMap<>();
         ex.getBindingResult().getAllErrors().forEach(error->{
             String fieldName=((FieldError)error).getField();
             String errorMessage = error.getDefaultMessage();
-            errors.put(fieldName,errorMessage);
+            APIResponse apiResponse = new APIResponse(errorMessage,AppConstants.FALSE);
+            errors.put(fieldName,apiResponse);
         });
     return new ResponseEntity<>(errors, HttpStatus.BAD_REQUEST);
     }
 
     @ExceptionHandler(ResourceNotFoundException.class)
-    public ResponseEntity<String> resourceNotFoundException(ResourceNotFoundException e){
+    public ResponseEntity<APIResponse> resourceNotFoundException(ResourceNotFoundException e){
         String message = e.getMessage();
-        return new ResponseEntity<>(message, HttpStatus.NOT_FOUND);
+        APIResponse apiResponse = new APIResponse(message,AppConstants.FALSE);
+        return new ResponseEntity<>(apiResponse, HttpStatus.NOT_FOUND);
 
     }
 
     @ExceptionHandler(APIException.class)
-    public ResponseEntity<String> apiException(APIException e){
+    public ResponseEntity<APIResponse> apiException(APIException e){
         String message = e.getMessage();
-        return new ResponseEntity<>(message, HttpStatus.BAD_REQUEST);
+        APIResponse apiResponse = new APIResponse(message, AppConstants.FALSE);
+        return new ResponseEntity<>(apiResponse, HttpStatus.BAD_REQUEST);
 
     }
 
     @ExceptionHandler(CategoryNotFoundException.class)
-    public ResponseEntity<String> apiException(CategoryNotFoundException e){
+    public ResponseEntity<APIResponse> apiException(CategoryNotFoundException e){
         String message = e.getMessage();
-        return new ResponseEntity<>(message, HttpStatus.NOT_FOUND);
-
+        APIResponse apiResponse = new APIResponse(message,AppConstants.FALSE);
+        return new ResponseEntity<>(apiResponse, HttpStatus.NOT_FOUND);
+    }
+    @ExceptionHandler(ConstraintViolationException.class)
+    public ResponseEntity<Map<String,APIResponse>> constraintVioationException(ConstraintViolationException ex){
+        Map<String,APIResponse> errors = new HashMap<>();
+        ex.getConstraintViolations().forEach(error->{
+            String fieldName = error.getPropertyPath().toString();
+            String errorMessage = error.getMessage();
+            APIResponse apiResponse = new APIResponse(errorMessage,AppConstants.FALSE);
+            errors.put(fieldName,apiResponse);
+        });
+        return new ResponseEntity<>(errors, HttpStatus.BAD_REQUEST);
     }
 }

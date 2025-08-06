@@ -1,78 +1,79 @@
 package com.ecommerce.snapshop.service;
 
 import com.ecommerce.snapshop.exceptions.APIException;
-import com.ecommerce.snapshop.exceptions.CategoryNotFoundException;
 import com.ecommerce.snapshop.exceptions.ResourceNotFoundException;
 import com.ecommerce.snapshop.model.Category;
+import com.ecommerce.snapshop.payload.CategoryDTORequest;
+import com.ecommerce.snapshop.payload.CategoryDTOResponse;
 import com.ecommerce.snapshop.repository.CategoryRepository;
-import org.springframework.http.HttpStatus;
+import lombok.AllArgsConstructor;
+import org.modelmapper.ModelMapper;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
-import org.springframework.web.server.ResponseStatusException;
 import java.util.List;
 import java.util.Optional;
 
 @Service
+@AllArgsConstructor
 public class CategoryserviceImpl implements CategoryService {
-    //private List<Category> categoryList=new ArrayList<>();
     private CategoryRepository categoryRepository;
-
-    public CategoryserviceImpl(CategoryRepository categoryRepository) {
-        this.categoryRepository = categoryRepository;
-    }
+    private ModelMapper modelMapper;
 
     @Override
-    public List<Category> getAllCategories() {
-        List<Category> categories = categoryRepository.findAll();
+    public CategoryDTOResponse getAllCategories(int pageNumber, int pageSize,String sortBy, String sortOrder) {
+        Sort sortOrderBy = sortOrder.equalsIgnoreCase("asc")
+                ? Sort.by(sortBy).ascending()
+                :Sort.by(sortBy).descending();
+        Pageable pageDetails = PageRequest.of(pageNumber, pageSize,sortOrderBy);
+        Page<Category> pageCategories=categoryRepository.findAll(pageDetails);
+        List<Category> categories = pageCategories.getContent();
         if(categories.isEmpty()){
             throw new APIException("No categories found");
         }
-        return categoryRepository.findAll();
+        List<CategoryDTORequest> categoriesDTORes = categories.stream()
+                .map(category -> modelMapper.map(category, CategoryDTORequest.class))
+                .toList();
+        CategoryDTOResponse categoryDTOResponse = new CategoryDTOResponse();
+        categoryDTOResponse.setCategories(categoriesDTORes);
+        categoryDTOResponse.setPageNumber(pageDetails.getPageNumber());
+        categoryDTOResponse.setPageSize(pageDetails.getPageSize());
+        categoryDTOResponse.setTotalElements(pageCategories.getTotalElements());
+        categoryDTOResponse.setTotalPages(pageCategories.getTotalPages());
+        categoryDTOResponse.setLastPage(pageCategories.isLast());
+        return categoryDTOResponse;
     }
 
     @Override
-    public Category createCategory(Category category) {
+    public CategoryDTORequest createCategory(CategoryDTORequest categoryDTORequest) {
+        Category category = modelMapper.map(categoryDTORequest, Category.class);
         Category categoryName=categoryRepository.findByCategoryName(category.getCategoryName());
         if(categoryName!=null){
-            throw new APIException(category.getCategoryName() +" already exists!!!");
+            throw new APIException(categoryDTORequest.getCategoryName() +" already exists!!!");
         }
-        categoryRepository.save(category);
-        return category;
+        Category savedCategory=categoryRepository.save(category);
+        return modelMapper.map(savedCategory, CategoryDTORequest.class);
     }
 
     @Override
-    public String deleteCategory(Long categoryId) {
-//        List<Category> categories = categoryRepository.findAll();
-//        Category category=categories.stream().filter(c->c.getCategoryId().equals(categoryId)).
-//                findFirst().orElseThrow(()-> new ResponseStatusException(HttpStatus.NOT_FOUND,"Resource Not Found"));
-//        categoryRepository.delete(category);
+    public CategoryDTORequest deleteCategory(Long categoryId) {
         Category category = categoryRepository.findById(categoryId)
                 .orElseThrow(()->new ResourceNotFoundException("Category","categoryId",categoryId));
         categoryRepository.delete(category);
-        return category.getCategoryName()+" Successfully deleted";
+        return modelMapper.map(category, CategoryDTORequest.class);
     }
 
     @Override
-    public Category updateCategory(Category category, Long categoryId) {
+    public CategoryDTORequest updateCategory(CategoryDTORequest categoryDTORequest, Long categoryId) {
         Optional<Category> optionalCategory = categoryRepository.findById(categoryId);
-        if(optionalCategory.isPresent()){
-            Category categoryToUpdate = optionalCategory.get();
-            categoryToUpdate.setCategoryName(category.getCategoryName());
-            categoryRepository.save(categoryToUpdate);
-        }else{
-            //throw new ResponseStatusException(HttpStatus.NOT_FOUND,"Category Not Found");
-            throw new ResourceNotFoundException("Category","categoryName",category.getCategoryName());
+        if(!optionalCategory.isPresent() || !optionalCategory.get().getCategoryName().equals(categoryDTORequest.getCategoryName())) {
+            throw new ResourceNotFoundException("Category", "categoryName", categoryDTORequest.getCategoryName());
         }
-
-//        Optional<Category> optionalCategory = categoryRepository.findAll().
-//                stream().filter(c -> c.getCategoryId().equals(categoryId))
-//                .findFirst();
-//        if (optionalCategory.isPresent()) {
-//            Category categoryToUpdate = optionalCategory.get();
-//            categoryToUpdate.setCategoryName(category.getCategoryName());
-//            categoryRepository.save(categoryToUpdate);
-//        } else {
-//            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Category Not Found");
-//        }
-        return category;
+        Category categoryToUpdate = optionalCategory.get();
+        categoryToUpdate.setCategoryName(categoryDTORequest.getCategoryName());
+        Category updatedCategory=categoryRepository.save(categoryToUpdate);
+        return modelMapper.map(updatedCategory, CategoryDTORequest.class);
     }
 }
