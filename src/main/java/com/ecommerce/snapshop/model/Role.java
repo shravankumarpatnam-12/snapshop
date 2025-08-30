@@ -5,6 +5,7 @@ import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import lombok.ToString;
 
 @Data
 @NoArgsConstructor
@@ -14,9 +15,11 @@ import lombok.NoArgsConstructor;
 public class Role {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @GeneratedValue(strategy = GenerationType.AUTO)
+    @Column(name="role_id")
     private String roleId;
 
+    @ToString.Exclude
     @Enumerated(EnumType.STRING)
     @Column(length = 20)
     private AppRole roleName;
